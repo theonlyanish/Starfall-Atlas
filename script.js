@@ -111,7 +111,7 @@ const atlasRegions = [
     label: "Data",
     color: "#d6ef7f",
     center: { x: -170, y: 390, z: 150 },
-    layout: "ring",
+    layout: "threebody",
     keywords: ["data", "db", "sql", "postgres", "mongo", "redis", "analytics", "warehouse", "spark"],
     orgs: ["postgres", "mongodb", "redis", "apache", "duckdb", "supabase"],
   },
@@ -120,7 +120,7 @@ const atlasRegions = [
     label: "Security",
     color: "#ff8e8e",
     center: { x: -650, y: 240, z: -160 },
-    layout: "wedge",
+    layout: "sentinel",
     keywords: ["security", "crypto", "auth", "scan", "vulnerability", "secret", "oauth", "tls"],
     orgs: ["trailofbits", "openssl", "letsencrypt", "auth0", "zapier"],
   },
@@ -398,6 +398,25 @@ function regionOffset(region, hash) {
     };
   }
 
+  if (region.layout === "threebody") {
+    const body = hash % 3;
+    const anchors = [
+      { x: -70, y: -34, z: -28 },
+      { x: 78, y: -18, z: 26 },
+      { x: -6, y: 74, z: 8 },
+    ];
+    const anchor = anchors[body];
+    const angle = a + body * 2.09;
+    const localRadius = 18 + c * 54;
+    const sharedAngle = a * 0.72 + b * Math.PI * 2;
+    const sharedPull = Math.sin(sharedAngle + body * 2.09) * 22;
+    return {
+      x: anchor.x + Math.cos(angle) * localRadius * 0.82 + Math.cos(sharedAngle) * sharedPull + jitterX,
+      y: anchor.y + Math.sin(angle) * localRadius * 0.46 + Math.sin(sharedAngle * 1.4) * sharedPull * 0.42 + jitterY,
+      z: anchor.z + Math.sin(angle * 1.35) * 34 + (b - 0.5) * 26,
+    };
+  }
+
   if (region.layout === "void") {
     const radius = 120 + Math.pow(b, 0.72) * 310;
     const band = Math.sin(a * 2.4) * 34;
@@ -408,13 +427,24 @@ function regionOffset(region, hash) {
     };
   }
 
-  if (region.layout === "wedge") {
-    const angle = -Math.PI / 2 + (b - 0.5) * 2.2;
-    const radius = 38 + c * 118;
+  if (region.layout === "sentinel") {
+    if (hash % 9 === 0) {
+      const coreRadius = 12 + c * 22;
+      return {
+        x: Math.cos(a) * coreRadius + jitterX * 0.4,
+        y: Math.sin(a) * coreRadius * 0.78 + jitterY * 0.4,
+        z: (b - 0.5) * 28,
+      };
+    }
+
+    const lane = hash % 3;
+    const angle = -Math.PI / 2 + (b - 0.5) * (2.35 - lane * 0.18);
+    const orbitRadius = 64 + lane * 28 + c * 28;
+    const keel = Math.max(0, Math.sin(angle));
     return {
-      x: Math.cos(angle) * radius + jitterX,
-      y: Math.sin(angle) * radius * 0.8 + 34 + jitterY,
-      z: (b - 0.5) * 95,
+      x: Math.cos(angle) * orbitRadius * (0.88 - keel * 0.2) + jitterX,
+      y: Math.sin(angle) * orbitRadius * 0.58 + keel * (24 + lane * 8) + jitterY,
+      z: Math.sin(angle * 1.45) * 54 + (lane - 1) * 24,
     };
   }
 
@@ -1070,10 +1100,16 @@ function drawRegions(time) {
       if (label.x < -120 || label.x > width + 120 || label.y < -40 || label.y > height + 90) {
         continue;
       }
-      ctx.fillStyle = `rgba(244, 242, 232, ${isActive ? 0.78 : 0.28})`;
-      ctx.font = "650 12px Inter, system-ui, sans-serif";
+      const labelText = region.label.toUpperCase();
+      ctx.fillStyle = `rgba(244, 242, 232, ${isActive ? 0.68 : 0.24})`;
+      ctx.font = "500 10px Inter, system-ui, sans-serif";
+      ctx.letterSpacing = "0.08em";
       ctx.textAlign = "center";
-      ctx.fillText(region.label, label.x, label.y);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+      ctx.shadowBlur = 8;
+      ctx.fillText(labelText, label.x, label.y);
+      ctx.shadowBlur = 0;
+      ctx.letterSpacing = "0px";
     }
   }
 }
@@ -1099,7 +1135,12 @@ function regionLabelPosition(region, projected, radius) {
 function drawRegionDust(region, projected, radius, isActive, time) {
   const hash = hashString(region.id);
   const count =
-    region.layout === "mesh" || region.layout === "union" || region.layout === "belt" || region.layout === "atom"
+    region.layout === "mesh" ||
+    region.layout === "union" ||
+    region.layout === "belt" ||
+    region.layout === "atom" ||
+    region.layout === "threebody" ||
+    region.layout === "sentinel"
       ? 42
       : 30;
   for (let i = 0; i < count; i += 1) {
@@ -1192,6 +1233,86 @@ function drawRegionOrbitals(region, projected, radius, isActive, time) {
       ctx.lineTo(Math.cos(angle) * 146, Math.sin(angle) * 52);
       ctx.stroke();
     }
+    ctx.restore();
+    return;
+  }
+
+  if (region.layout === "threebody") {
+    const anchors = [
+      { x: -70, y: -34 },
+      { x: 78, y: -18 },
+      { x: -6, y: 74 },
+    ];
+    const spin = time / 24000;
+    ctx.lineWidth = 1 / Math.max(0.6, projected.scale);
+
+    for (let orbit = 0; orbit < 2; orbit += 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = hexToRgba(region.color, Math.max(0.035, alpha - orbit * 0.055));
+      ctx.ellipse(0, 10, 118 - orbit * 22, 58 - orbit * 8, -0.18 + spin * 0.35 + orbit * 0.46, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.strokeStyle = hexToRgba(region.color, isActive ? 0.12 : 0.035);
+    for (let step = 0; step <= 72; step += 1) {
+      const t = (step / 72) * Math.PI * 2;
+      const x = Math.cos(t + spin * 0.5) * 92 + Math.sin(t * 2) * 18;
+      const y = Math.sin(t + spin * 0.5) * 38 + Math.cos(t * 2) * 12 + 8;
+      if (step === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+    return;
+  }
+
+  if (region.layout === "sentinel") {
+    const lineWidth = 1.1 / Math.max(0.6, projected.scale);
+    ctx.lineWidth = lineWidth;
+
+    ctx.beginPath();
+    ctx.strokeStyle = hexToRgba(region.color, isActive ? 0.16 : 0.045);
+    ctx.moveTo(0, -78);
+    ctx.lineTo(58, -48);
+    ctx.quadraticCurveTo(56, 18, 34, 58);
+    ctx.quadraticCurveTo(16, 88, 0, 102);
+    ctx.quadraticCurveTo(-16, 88, -34, 58);
+    ctx.quadraticCurveTo(-56, 18, -58, -48);
+    ctx.closePath();
+    ctx.stroke();
+
+    for (let lane = 0; lane < 3; lane += 1) {
+      const orbitRadius = 68 + lane * 27;
+      const yOffset = lane * 4;
+      const orbitAlpha = Math.max(0.03, alpha - lane * 0.035);
+
+      ctx.beginPath();
+      ctx.strokeStyle = hexToRgba(region.color, orbitAlpha);
+      ctx.ellipse(0, yOffset, orbitRadius * 0.92, orbitRadius * 0.48, 0, Math.PI * 0.95, Math.PI * 2.05);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-orbitRadius * 0.52, orbitRadius * 0.28 + yOffset);
+      ctx.quadraticCurveTo(0, orbitRadius * (0.7 + lane * 0.03), orbitRadius * 0.52, orbitRadius * 0.28 + yOffset);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = hexToRgba(region.color, isActive ? 0.22 : 0.07);
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (const angle of [-0.88, 0, 0.88]) {
+      const gateX = Math.sin(angle) * 72;
+      const gateY = -42 + Math.cos(angle) * 12;
+      ctx.beginPath();
+      ctx.fillStyle = hexToRgba(region.color, isActive ? 0.34 : 0.1);
+      ctx.arc(gateX, gateY, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
     return;
   }

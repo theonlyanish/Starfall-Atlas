@@ -228,14 +228,6 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-function logApi(...args) {
-  console.log("[Starfall API]", ...args);
-}
-
-function warnApi(...args) {
-  console.warn("[Starfall API]", ...args);
-}
-
 function maxRepos() {
   return viewMode === "galaxy" ? MAX_REPOS_GALAXY : MAX_REPOS_STARFALL;
 }
@@ -651,19 +643,11 @@ async function fetchEvents() {
 
   try {
     signalStatus.textContent = "syncing";
-    logApi("sync start", { endpoints: API_URLS, etag: Boolean(etag) });
     const result = await requestGithubEvents();
     schedulePoll(Math.max(45, result.pollInterval) * 1000);
-    logApi("sync result", {
-      status: result.status,
-      source: result.source,
-      events: Array.isArray(result.events) ? result.events.length : "not-array",
-      nextPollSeconds: Math.max(45, result.pollInterval),
-    });
 
     if (result.status === 304) {
       signalStatus.textContent = "steady";
-      logApi("no new GitHub events", { source: result.source });
       return;
     }
 
@@ -676,12 +660,10 @@ async function fetchEvents() {
 
     if (result.source === "demo") {
       const fallbackEvents = createFallbackEvents(36);
-      warnApi("using demo fallback events", { count: fallbackEvents.length });
       enqueueEvents(fallbackEvents, "demo");
       updateDock(fallbackEvents.slice(0, 4).map(normalizeEvent));
     }
   } catch (error) {
-    warnApi("sync failed, using demo fallback", error);
     signalStatus.textContent = "demo";
     schedulePoll(90000);
     if (replayDeck.length === 0) {
@@ -700,7 +682,6 @@ async function requestGithubEvents() {
       };
       if (etag) headers["If-None-Match"] = etag;
 
-      logApi("request", { url, hasEtag: Boolean(etag) });
       const response = await fetch(url, { headers });
       lastFetchAt = Date.now();
 
@@ -709,15 +690,6 @@ async function requestGithubEvents() {
 
       const pollInterval = Number(response.headers.get("x-poll-interval")) || 60;
       const source = response.headers.get("x-starfall-source") || "live";
-      logApi("response", {
-        url,
-        status: response.status,
-        ok: response.ok,
-        source,
-        rateLimitRemaining: response.headers.get("x-ratelimit-remaining"),
-        rateLimitReset: response.headers.get("x-ratelimit-reset"),
-        pollInterval,
-      });
 
       if (response.status === 304) {
         return { status: 304, source: "steady", pollInterval, events: [] };
@@ -741,7 +713,6 @@ async function requestGithubEvents() {
         events,
       };
     } catch (error) {
-      warnApi("request failed", { url, message: error.message });
       errors.push(error.message);
     }
   }

@@ -111,6 +111,19 @@
         <button id="clearSky" class="mode-button" type="button">Clear</button>
       </section>
 
+      <section class="sound-panel" aria-label="Ambient sound">
+        <button
+          id="soundToggle"
+          class="sound-toggle"
+          type="button"
+          aria-label="Mute ambient sound"
+          aria-pressed="true"
+        >
+          <span class="sound-core" aria-hidden="true"></span>
+          <span class="sound-wave" aria-hidden="true"></span>
+        </button>
+      </section>
+
       <section class="density-panel" aria-label="Meteor density">
         <button class="density-button" type="button" data-density="calm">Calm</button>
         <button class="density-button is-active" type="button" data-density="normal">Pulse</button>
@@ -182,6 +195,8 @@
         <strong id="hoverRepo">Repository</strong>
         <small id="hoverActor">Actor</small>
       </aside>
+
+      <audio id="ambientAudio" src="assets/Calm-space-ambient-track.mp3" preload="auto" loop></audio>
     </main>
 
     <section class="sr-only" aria-labelledby="seo-title">

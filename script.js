@@ -18,9 +18,12 @@ const densityButtons = [...document.querySelectorAll(".density-button")];
 const regionButtons = [...document.querySelectorAll(".region-button")];
 const filterButtons = [...document.querySelectorAll(".filter-button")];
 const clearSky = document.querySelector("#clearSky");
+const ambientAudio = document.querySelector("#ambientAudio");
+const soundToggle = document.querySelector("#soundToggle");
 
 const GITHUB_EVENTS_URL = "https://api.github.com/events?per_page=100";
 const API_URLS = window.location.protocol === "file:" ? [GITHUB_EVENTS_URL] : ["/api/github-events"];
+const AMBIENT_VOLUME = 0.4;
 const MAX_REPOS_STARFALL = 100;
 const MAX_REPOS_GALAXY = 260;
 const MAX_METEORS_STARFALL = 180;
@@ -1803,6 +1806,47 @@ function resetSky() {
   `;
 }
 
+let ambientSoundEnabled = true;
+
+function updateSoundToggle() {
+  if (!ambientAudio || !soundToggle) return;
+  soundToggle.classList.toggle("is-active", ambientSoundEnabled);
+  soundToggle.classList.toggle("is-muted", !ambientSoundEnabled);
+  soundToggle.setAttribute("aria-pressed", String(ambientSoundEnabled));
+  soundToggle.setAttribute("aria-label", ambientSoundEnabled ? "Mute ambient sound" : "Play ambient sound");
+}
+
+async function playAmbientAudio() {
+  if (!ambientAudio) return;
+  ambientAudio.volume = AMBIENT_VOLUME;
+  ambientAudio.muted = !ambientSoundEnabled;
+  if (!ambientSoundEnabled) {
+    updateSoundToggle();
+    return;
+  }
+
+  try {
+    await ambientAudio.play();
+  } catch (error) {
+    // Browser autoplay policies may wait for the first user gesture.
+  }
+  updateSoundToggle();
+}
+
+function toggleAmbientAudio() {
+  if (!ambientAudio) return;
+  ambientSoundEnabled = !ambientSoundEnabled;
+  ambientAudio.volume = AMBIENT_VOLUME;
+  ambientAudio.muted = !ambientSoundEnabled;
+
+  if (ambientSoundEnabled) {
+    playAmbientAudio();
+  } else {
+    ambientAudio.pause();
+    updateSoundToggle();
+  }
+}
+
 function isInteractiveTarget(target) {
   return Boolean(target.closest("button, a, input, textarea, select"));
 }
@@ -1941,8 +1985,15 @@ for (const button of filterButtons) {
 }
 
 clearSky.addEventListener("click", resetSky);
+soundToggle?.addEventListener("click", toggleAmbientAudio);
+window.addEventListener("pointerdown", (event) => {
+  if (isInteractiveTarget(event.target)) return;
+  playAmbientAudio();
+});
 
 resize();
 setViewMode(viewMode);
+updateSoundToggle();
+playAmbientAudio();
 fetchEvents();
 requestAnimationFrame(frame);

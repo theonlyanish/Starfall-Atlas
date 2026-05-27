@@ -35,6 +35,26 @@ function warnApi(...args) {
   console.warn("[Starfall API]", ...args);
 }
 
+function isDisallowedPublicPath(safePath) {
+  const normalized = safePath.replace(/\\/g, "/").toLowerCase();
+  const blockedExact = new Set([
+    "server.js",
+    "package.json",
+    "package-lock.json",
+    "npm-shrinkwrap.json",
+    "readme.md",
+    "license",
+  ]);
+
+  if (blockedExact.has(normalized)) return true;
+  if (normalized.startsWith(".") || normalized.includes("/.") || normalized.includes("/node_modules/")) return true;
+  if (normalized.startsWith("node_modules/") || normalized.startsWith(".git/") || normalized.startsWith("src/")) return true;
+  if (normalized.endsWith(".md") || normalized.endsWith(".map")) return true;
+  if (normalized.endsWith(".json") && normalized !== "site.webmanifest") return true;
+
+  return false;
+}
+
 function getSiteOrigin(request) {
   if (SITE_URL) {
     return SITE_URL.replace(/\/+$/, "");
@@ -63,14 +83,28 @@ function renderIndexHtml(request, response) {
 
     send(response, 200, renderedHtml, {
       "Content-Type": mimeTypes[".html"],
-      "Cache-Control": "no-store",
+      "Cache-Control": "public, max-age=300",
     });
   });
 }
 
 function serveRobots(request, response) {
   const siteOrigin = getSiteOrigin(request);
-  const body = [`User-agent: *`, `Allow: /`, ``, `Sitemap: ${siteOrigin}/sitemap.xml`].join("\n");
+  const body = [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /api/",
+    "Disallow: /server.js",
+    "Disallow: /package.json",
+    "Disallow: /README.md",
+    "Disallow: /.git/",
+    "Disallow: /node_modules/",
+    "Disallow: /src/",
+    "Disallow: *.json",
+    "Disallow: *.map",
+    "",
+    `Sitemap: ${siteOrigin}/sitemap.xml`,
+  ].join("\n");
   send(response, 200, body, {
     "Content-Type": mimeTypes[".txt"],
     "Cache-Control": "public, max-age=3600",
@@ -123,6 +157,7 @@ async function proxyGithubEvents(request, response) {
     const responseHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
     };
 
     const contentType = upstream.headers.get("content-type");
@@ -182,6 +217,11 @@ function serveStatic(request, response) {
 
   if (!filePath.startsWith(ROOT)) {
     send(response, 403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
+    return;
+  }
+
+  if (isDisallowedPublicPath(safePath)) {
+    send(response, 404, "Not found", { "Content-Type": "text/plain; charset=utf-8" });
     return;
   }
 

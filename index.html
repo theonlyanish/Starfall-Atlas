@@ -57,6 +57,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+        const analyticsScript = document.createElement("script");
+        analyticsScript.defer = true;
+        analyticsScript.src = "/_vercel/insights/script.js";
+        document.head.appendChild(analyticsScript);
+      }
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",

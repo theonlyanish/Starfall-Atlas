@@ -5,5 +5,8 @@
   "description": "Visualizing live GitHub activity from the GitHub Events API as an interactive meteor field and galaxy.",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }
